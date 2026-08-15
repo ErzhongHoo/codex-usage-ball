@@ -38,6 +38,7 @@ import {
 import "./App.css";
 import {
   defaultSettings,
+  normalizeBallSize,
   normalizeAppSettings,
   normalizeLowNoticeThreshold,
   normalizeRefreshIntervalMinutes,
@@ -123,6 +124,8 @@ type Copy = {
   refreshFrequency: string;
   refreshIntervalAria: string;
   minuteUnit: string;
+  ballSize: string;
+  ballSizeAria: string;
   proxy: string;
   enableProxy: string;
   disableProxy: string;
@@ -139,8 +142,6 @@ type Copy = {
   disableStartup: string;
   comingSoon: string;
   unknown: string;
-  windowFiveHoursShort: string;
-  windowSevenDaysShort: string;
   windowFiveHours: string;
   windowSevenDays: string;
   minuteWindow: (value: number) => string;
@@ -200,6 +201,8 @@ const copy: Record<Language, Copy> = {
     refreshFrequency: "刷新频率",
     refreshIntervalAria: "自动刷新间隔（分钟）",
     minuteUnit: "分钟",
+    ballSize: "悬浮球大小",
+    ballSizeAria: "悬浮球大小（像素）",
     proxy: "网络代理",
     enableProxy: "启用",
     disableProxy: "关闭",
@@ -217,8 +220,6 @@ const copy: Record<Language, Copy> = {
     disableStartup: "关闭",
     comingSoon: "稍后接入",
     unknown: "未知",
-    windowFiveHoursShort: "5小时",
-    windowSevenDaysShort: "7天",
     windowFiveHours: "5 小时窗口",
     windowSevenDays: "7 天窗口",
     minuteWindow: (value) => `${value} 分钟窗口`,
@@ -266,6 +267,8 @@ const copy: Record<Language, Copy> = {
     refreshFrequency: "Refresh rate",
     refreshIntervalAria: "Automatic refresh interval in minutes",
     minuteUnit: "min",
+    ballSize: "Floating ball size",
+    ballSizeAria: "Floating ball size in pixels",
     proxy: "Network proxy",
     enableProxy: "On",
     disableProxy: "Off",
@@ -283,8 +286,6 @@ const copy: Record<Language, Copy> = {
     disableStartup: "Off",
     comingSoon: "Coming later",
     unknown: "Unknown",
-    windowFiveHoursShort: "5h",
-    windowSevenDaysShort: "7d",
     windowFiveHours: "5-hour window",
     windowSevenDays: "7-day window",
     minuteWindow: (value) => `${value}-minute window`,
@@ -577,13 +578,6 @@ function formatWindowName(windowData: RateLimitWindow | null, fallback: string, 
   return text.minuteWindow(windowData.windowDurationMins);
 }
 
-function formatWindowShortName(windowData: RateLimitWindow | null, fallback: string, text: Copy) {
-  if (!windowData?.windowDurationMins) return fallback;
-  if (windowData.windowDurationMins === 300) return text.windowFiveHoursShort;
-  if (windowData.windowDurationMins === 10080) return text.windowSevenDaysShort;
-  return fallback;
-}
-
 function availableRateLimitWindows(activeLimit: RateLimitSnapshot | null) {
   if (!activeLimit) return [];
   return [activeLimit.primary, activeLimit.secondary].filter(
@@ -871,6 +865,24 @@ function SettingsFields({
         </div>
       </div>
 
+      <div className="setting-row">
+        <span>{text.ballSize}</span>
+        <div className="ball-size-control">
+          <input
+            type="range"
+            min={88}
+            max={160}
+            step={8}
+            value={settings.ballSize}
+            aria-label={text.ballSizeAria}
+            onChange={(event) =>
+              updateSettings({ ballSize: normalizeBallSize(Number(event.currentTarget.value)) })
+            }
+          />
+          <em>{settings.ballSize}px</em>
+        </div>
+      </div>
+
       <div className="setting-row proxy-setting">
         <span>
           <Network size={15} />
@@ -981,19 +993,22 @@ function BallView() {
   const secondaryTone = getTone(secondaryRemaining);
   const primaryPercentText = formatBallPercent(primaryRemaining);
   const secondaryPercentText = formatBallPercent(secondaryRemaining);
-  const primaryWindowLabel = formatWindowShortName(primaryWindow, text.shortFallback, text);
-  const secondaryWindowLabel = formatWindowShortName(secondaryWindow, text.longFallback, text);
   const hasSecondaryWindow = secondaryWindow !== null;
   const ballStyle = {
     "--ball-primary-progress": `${primaryRemaining ?? 0}`,
     "--ball-secondary-progress": `${secondaryRemaining ?? 0}`,
+    "--ball-scale": `${settings.ballSize / 112}`,
   } as CSSProperties;
-  const ballTitle = [
-    `${limitName(activeLimit, text)}：${primaryWindowLabel} ${primaryPercentText}`,
-    hasSecondaryWindow ? `${secondaryWindowLabel} ${secondaryPercentText}` : null,
-  ]
+  const ballTitle = [primaryPercentText, hasSecondaryWindow ? secondaryPercentText : null]
     .filter(Boolean)
-    .join(" ");
+    .join(" / ");
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    void invoke("resize_ball_window", { size: settings.ballSize }).catch((err) => {
+      console.error("调整悬浮球大小失败", err);
+    });
+  }, [settings.ballSize]);
 
   const clearClickRefreshTimer = useCallback(() => {
     if (clickRefreshTimerRef.current === null) return;
@@ -1125,16 +1140,14 @@ function BallView() {
           <circle className="ball-ring-progress" cx="56" cy="56" r="50" pathLength="100" />
         </svg>
         <span className="ball-core">
-          <span className="ball-window-label">{primaryWindowLabel}</span>
           <span className="ball-primary-value">{primaryPercentText}</span>
         </span>
         {hasSecondaryWindow ? (
-          <span className="ball-secondary-card" aria-label={`${secondaryWindowLabel} ${secondaryPercentText}`}>
+          <span className="ball-secondary-card" aria-label={secondaryPercentText}>
             <svg className="ball-ring-inner" viewBox="0 0 44 44" aria-hidden="true">
               <circle className="ball-ring-secondary-track" cx="22" cy="22" r="18" pathLength="100" />
               <circle className="ball-ring-secondary-progress" cx="22" cy="22" r="18" pathLength="100" />
             </svg>
-            <span className="ball-secondary-label">{secondaryWindowLabel}</span>
             <span className="ball-secondary-value">{secondaryPercentText}</span>
           </span>
         ) : null}

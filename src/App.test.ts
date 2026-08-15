@@ -40,12 +40,18 @@ describe("悬浮球刷新状态", () => {
 });
 
 describe("动态额度窗口", () => {
-  test("根据 windowDurationMins 标记窗口，仅返回周额度时改为单环", () => {
-    expect(appSource).toContain("function formatWindowShortName");
+  test("仅返回周额度时改为单环", () => {
     expect(appSource).toContain("function availableRateLimitWindows");
-    expect(appSource).toContain("windowData.windowDurationMins === 10080");
     expect(appSource).toContain("usage-ball-single");
     expect(appSource).toContain("hasSecondaryWindow ? (");
+  });
+
+  test("悬浮球内部只显示数字和百分比，不显示 5 小时或 7 天标签", () => {
+    expect(appSource).toContain("ball-primary-value");
+    expect(appSource).toContain("ball-secondary-value");
+    expect(appSource).not.toContain("ball-window-label");
+    expect(appSource).not.toContain("ball-secondary-label");
+    expect(appSource).not.toContain("formatWindowShortName");
   });
 });
 
@@ -89,6 +95,24 @@ describe("刷新频率", () => {
     expect(appSource).toContain("normalizeRefreshIntervalMinutes");
     expect(appSource).toContain("refreshIntervalMinutes * 60 * 1000");
     expect(appSource).toContain("min={1}");
+  });
+});
+
+describe("悬浮球大小", () => {
+  test("设置页提供尺寸滑块并同步调整原生窗口", () => {
+    expect(appSource).toContain("settings.ballSize");
+    expect(appSource).toContain('type="range"');
+    expect(appSource).toContain("min={88}");
+    expect(appSource).toContain("max={160}");
+    expect(appSource).toContain('invoke("resize_ball_window"');
+    expect(rustSource).toContain("fn resize_ball_window");
+    expect(rustSource).toContain("resize_ball_window,");
+  });
+
+  test("启动期窗口事件和缩放命令安全处理尚未注册的状态", () => {
+    expect(
+      (rustSource.match(/try_state::<Mutex<WindowPositionStore>>\(\)/g) ?? []).length,
+    ).toBeGreaterThanOrEqual(2);
   });
 });
 

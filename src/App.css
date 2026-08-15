@@ -101,6 +101,8 @@ button {
   overflow: hidden;
   cursor: pointer;
   outline: 0;
+  transform: scale(var(--ball-scale, 1));
+  transform-origin: top center;
   transition:
     box-shadow 160ms ease,
     transform 160ms ease;
@@ -124,11 +126,11 @@ button {
 }
 
 .compact-ball:hover {
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(var(--ball-scale, 1));
 }
 
 .compact-ball:active {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(var(--ball-scale, 1));
 }
 
 .ball-ring-outer {
@@ -164,7 +166,7 @@ button {
   inset: 18px 20px 43px;
   z-index: 3;
   display: grid;
-  align-content: start;
+  align-content: center;
   justify-items: center;
   border-radius: 999px;
   background: var(--ball-core-bg);
@@ -172,19 +174,10 @@ button {
   pointer-events: none;
 }
 
-.ball-window-label {
-  margin-top: 7px;
-  color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 720;
-  line-height: 1;
-}
-
 .ball-primary-value {
   display: block;
-  margin-top: 2px;
   color: var(--primary-ring-color);
-  font-size: 31px;
+  font-size: 33px;
   font-weight: 780;
   letter-spacing: 0;
   line-height: 1;
@@ -194,11 +187,6 @@ button {
 .usage-ball-single .ball-core {
   inset: 22px;
   align-content: center;
-}
-
-.usage-ball-single .ball-window-label {
-  margin-top: 0;
-  font-size: 12px;
 }
 
 .usage-ball-single .ball-primary-value {
@@ -215,7 +203,6 @@ button {
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 2px;
   transform: translateX(-50%);
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 50%;
@@ -243,7 +230,6 @@ button {
   stroke-linecap: round;
 }
 
-.ball-secondary-label,
 .ball-secondary-value {
   position: relative;
   z-index: 1;
@@ -252,15 +238,9 @@ button {
   white-space: nowrap;
 }
 
-.ball-secondary-label {
-  color: var(--muted);
-  font-size: 8.5px;
-  font-weight: 720;
-}
-
 .ball-secondary-value {
   color: var(--secondary-ring-color);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 780;
 }
 
@@ -301,7 +281,7 @@ button {
   z-index: 20;
   box-sizing: border-box;
   display: grid;
-  width: 104px;
+  width: min(104px, calc(100vw - 8px));
   gap: 3px;
   padding: 5px;
   border: 1px solid var(--border-soft);
@@ -819,6 +799,27 @@ h1 {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+}
+
+.ball-size-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.ball-size-control input {
+  width: 100%;
+  accent-color: var(--good);
+  cursor: pointer;
+}
+
+.ball-size-control em {
+  min-width: 58px;
+  border-color: color-mix(in srgb, var(--good) 28%, transparent);
+  background: color-mix(in srgb, var(--good) 9%, transparent);
+  color: var(--good);
+  text-align: center;
 }
 
 .proxy-control {

@@ -11,7 +11,10 @@ use std::sync::{mpsc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Position, State, Window, WindowEvent};
+use tauri::{
+    AppHandle, LogicalSize, Manager, PhysicalPosition, PhysicalSize, Position, Size, State,
+    WebviewWindow, Window, WindowEvent,
+};
 
 const BALL_WINDOW_LABEL: &str = "ball";
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -23,6 +26,9 @@ const MENU_SHOW_SETTINGS: &str = "show_settings";
 const MENU_EXIT: &str = "exit_app";
 const WINDOW_STATE_FILE: &str = "window-positions.json";
 const RIGHT_SNAP_DISTANCE_PX: i32 = 24;
+const BALL_MIN_SIZE: u32 = 88;
+const BALL_MAX_SIZE: u32 = 160;
+const BALL_WINDOW_EXTRA_HEIGHT: u32 = 28;
 const RATE_LIMIT_CACHE_TTL: Duration = Duration::from_secs(180);
 
 #[derive(Default)]
@@ -233,6 +239,14 @@ fn monitor_for_window(window: &Window) -> Option<tauri::Monitor> {
         .or_else(|| window.primary_monitor().ok().flatten())
 }
 
+fn monitor_for_webview_window(window: &WebviewWindow) -> Option<tauri::Monitor> {
+    window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| window.primary_monitor().ok().flatten())
+}
+
 fn restore_window_positions(app: &AppHandle) {
     let store = app
         .state::<Mutex<WindowPositionStore>>()
@@ -324,17 +338,17 @@ fn handle_window_moved(window: &Window, position: PhysicalPosition<i32>) {
     }
 
     let app = window.app_handle();
-    let Ok(store) = app
-        .state::<Mutex<WindowPositionStore>>()
-        .lock()
-        .map(|mut store| {
-            if store.set(label, settled) {
-                Some(store.clone())
-            } else {
-                None
-            }
-        })
-    else {
+    // Release builds can receive a move event before setup has registered managed state.
+    let Some(position_store) = app.try_state::<Mutex<WindowPositionStore>>() else {
+        return;
+    };
+    let Ok(store) = position_store.lock().map(|mut store| {
+        if store.set(label, settled) {
+            Some(store.clone())
+        } else {
+            None
+        }
+    }) else {
         return;
     };
 
@@ -376,6 +390,10 @@ struct RateLimitSnapshot {
 struct GetAccountRateLimitsResponse {
     rate_limits: RateLimitSnapshot,
     rate_limits_by_limit_id: Option<HashMap<String, RateLimitSnapshot>>,
+}
+
+fn normalize_ball_size(size: u32) -> u32 {
+    size.clamp(BALL_MIN_SIZE, BALL_MAX_SIZE)
 }
 
 #[derive(Default)]
@@ -531,11 +549,8 @@ fn candidate_dirs() -> Vec<PathBuf> {
         );
         push_dir(
             &mut dirs,
-            env::var_os("NPM_CONFIG_PREFIX").map(|value| {
-                PathBuf::from(value)
-                    .join("bin")
-                    .into_os_string()
-            }),
+            env::var_os("NPM_CONFIG_PREFIX")
+                .map(|value| PathBuf::from(value).join("bin").into_os_string()),
         );
     }
 
@@ -925,6 +940,56 @@ fn hide_ball_window(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn resize_ball_window(app: AppHandle, size: u32) -> Result<(), String> {
+    let window = app
+        .get_webview_window(BALL_WINDOW_LABEL)
+        .ok_or_else(|| "找不到悬浮球窗口".to_string())?;
+    let size = normalize_ball_size(size);
+
+    let fallback_position = monitor_for_webview_window(&window).and_then(|monitor| {
+        let current = window.outer_position().ok()?;
+        let current_size = window.outer_size().ok()?;
+        let work_area = work_area_from_monitor(&monitor);
+        let current_size = window_size_from_physical(current_size);
+        Some(StoredWindowPosition {
+            x: current.x,
+            y: current.y,
+            snapped_to_right: (right_edge_x(work_area, current_size) - current.x).abs()
+                <= RIGHT_SNAP_DISTANCE_PX,
+        })
+    });
+    // The optimized frontend may invoke this command before setup finishes managing state.
+    let saved_position = app
+        .try_state::<Mutex<WindowPositionStore>>()
+        .and_then(|position_store| position_store.lock().ok().and_then(|store| store.ball))
+        .or(fallback_position);
+
+    window
+        .set_size(Size::Logical(LogicalSize::new(
+            f64::from(size),
+            f64::from(size + BALL_WINDOW_EXTRA_HEIGHT),
+        )))
+        .map_err(|err| format!("无法调整悬浮球窗口大小：{err}"))?;
+
+    if let (Some(monitor), Ok(window_size)) =
+        (monitor_for_webview_window(&window), window.outer_size())
+    {
+        let position = restore_ball_position(
+            saved_position,
+            work_area_from_monitor(&monitor),
+            window_size_from_physical(window_size),
+        );
+        window
+            .set_position(Position::Physical(PhysicalPosition::new(
+                position.x, position.y,
+            )))
+            .map_err(|err| format!("无法恢复悬浮球位置：{err}"))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 fn show_settings_window(app: AppHandle) -> Result<(), String> {
     show_window(&app, SETTINGS_WINDOW_LABEL)
 }
@@ -973,6 +1038,7 @@ pub fn run() {
             show_main_panel,
             hide_main_panel,
             hide_ball_window,
+            resize_ball_window,
             show_settings_window,
             hide_settings_window,
             exit_app
@@ -1085,6 +1151,13 @@ mod tests {
     }
 
     #[test]
+    fn 悬浮球大小限制在支持范围内() {
+        assert_eq!(normalize_ball_size(40), BALL_MIN_SIZE);
+        assert_eq!(normalize_ball_size(112), 112);
+        assert_eq!(normalize_ball_size(240), BALL_MAX_SIZE);
+    }
+
+    #[test]
     fn 支持常用代理协议并清理首尾空格() {
         assert_eq!(
             normalize_proxy_url(Some("  http://127.0.0.1:7890  ".to_string())).unwrap(),
@@ -1108,4 +1181,3 @@ mod tests {
         assert!(normalize_proxy_url(Some("http://127.0.0.1: 7890".to_string())).is_err());
     }
 }
-

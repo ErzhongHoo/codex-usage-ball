@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  normalizeBallSize,
   normalizeAppSettings,
   normalizeProxyUrl,
   normalizeRefreshIntervalMinutes,
@@ -11,6 +12,7 @@ describe("normalizeAppSettings", () => {
       language: "zh-CN",
       themeMode: "light",
       refreshIntervalMinutes: 5,
+      ballSize: 112,
       launchAtLogin: false,
       proxyEnabled: false,
       proxyUrl: "",
@@ -32,6 +34,13 @@ describe("normalizeAppSettings", () => {
       refreshIntervalMinutes: 1,
     });
     expect(normalizeRefreshIntervalMinutes(Number.NaN)).toBe(5);
+  });
+
+  it("允许在 88 到 160 像素之间设置悬浮球大小", () => {
+    expect(normalizeAppSettings({ ballSize: 136 })).toMatchObject({ ballSize: 136 });
+    expect(normalizeBallSize(40)).toBe(88);
+    expect(normalizeBallSize(200)).toBe(160);
+    expect(normalizeBallSize(Number.NaN)).toBe(112);
   });
 
   it("保留用户开启的开机启动配置", () => {

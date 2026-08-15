@@ -5,6 +5,7 @@ export type AppSettings = {
   language: Language;
   themeMode: ThemeMode;
   refreshIntervalMinutes: number;
+  ballSize: number;
   launchAtLogin: boolean;
   lowNoticeThreshold: number;
   proxyEnabled: boolean;
@@ -16,6 +17,7 @@ export const defaultSettings: AppSettings = {
   language: "zh-CN",
   themeMode: "light",
   refreshIntervalMinutes: 5,
+  ballSize: 112,
   launchAtLogin: false,
   lowNoticeThreshold: 15,
   proxyEnabled: false,
@@ -40,6 +42,14 @@ export function normalizeRefreshIntervalMinutes(value: unknown): number {
   return Math.min(35_791, Math.max(1, Math.round(value)));
 }
 
+export function normalizeBallSize(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return defaultSettings.ballSize;
+  }
+
+  return Math.min(160, Math.max(88, Math.round(value / 8) * 8));
+}
+
 export function normalizeProxyUrl(value: unknown): string {
   return typeof value === "string" ? value.trim().slice(0, 2048) : "";
 }
@@ -53,6 +63,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     themeMode: parsed.themeMode === "dark" ? "dark" : "light",
     // The old refreshIntervalSec field represented a fixed interval, so migrate it to the new default.
     refreshIntervalMinutes: normalizeRefreshIntervalMinutes(parsed.refreshIntervalMinutes),
+    ballSize: normalizeBallSize(parsed.ballSize),
     launchAtLogin: parsed.launchAtLogin === true,
     lowNoticeThreshold: normalizeLowNoticeThreshold(parsed.lowNoticeThreshold),
     proxyEnabled: parsed.proxyEnabled === true,
