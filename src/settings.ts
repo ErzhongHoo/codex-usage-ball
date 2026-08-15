@@ -1,13 +1,5 @@
 export type Language = "zh-CN" | "en-US";
-export type ThemeMode = "system" | "light" | "dark";
-export type ResolvedTheme = "light" | "dark";
-export type SkinName =
-  | "glass"
-  | "dashboard"
-  | "minimal"
-  | "terminal"
-  | "sea"
-  | "contrast";
+export type ThemeMode = "light" | "dark";
 
 export type AppSettings = {
   language: Language;
@@ -17,34 +9,19 @@ export type AppSettings = {
   lowNoticeThreshold: number;
   proxyEnabled: boolean;
   proxyUrl: string;
-  skin: SkinName;
   activeRateLimitId: string;
 };
 
 export const defaultSettings: AppSettings = {
   language: "zh-CN",
-  themeMode: "system",
+  themeMode: "light",
   refreshIntervalSec: 180,
   launchAtLogin: false,
   lowNoticeThreshold: 15,
   proxyEnabled: false,
   proxyUrl: "",
-  skin: "glass",
   activeRateLimitId: "__default__",
 };
-
-export const skinNames = [
-  "glass",
-  "dashboard",
-  "minimal",
-  "terminal",
-  "sea",
-  "contrast",
-] as const satisfies readonly SkinName[];
-
-function normalizeSkin(value: unknown): SkinName {
-  return skinNames.includes(value as SkinName) ? (value as SkinName) : defaultSettings.skin;
-}
 
 export function normalizeLowNoticeThreshold(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -64,17 +41,13 @@ export function normalizeAppSettings(value: unknown): AppSettings {
 
   return {
     language: parsed.language === "en-US" ? "en-US" : "zh-CN",
-    themeMode:
-      parsed.themeMode === "light" || parsed.themeMode === "dark"
-        ? parsed.themeMode
-        : "system",
+    themeMode: parsed.themeMode === "dark" ? "dark" : "light",
     // Migrate the previous 30/60-second choices to the fixed 3-minute interval.
     refreshIntervalSec: 180,
     launchAtLogin: parsed.launchAtLogin === true,
     lowNoticeThreshold: normalizeLowNoticeThreshold(parsed.lowNoticeThreshold),
     proxyEnabled: parsed.proxyEnabled === true,
     proxyUrl: normalizeProxyUrl(parsed.proxyUrl),
-    skin: normalizeSkin(parsed.skin),
     activeRateLimitId:
       typeof parsed.activeRateLimitId === "string" ? parsed.activeRateLimitId : defaultSettings.activeRateLimitId,
   };

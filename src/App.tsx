@@ -42,10 +42,8 @@ import {
   normalizeLowNoticeThreshold,
   type AppSettings,
   type Language,
-  type ResolvedTheme,
   type ThemeMode,
 } from "./settings";
-import { skinOptions } from "./skins";
 
 type RateLimitWindow = {
   usedPercent: number;
@@ -115,12 +113,10 @@ type Copy = {
   chinese: string;
   english: string;
   theme: string;
-  themeSkin: string;
   activeRateLimitBucket: string;
   defaultRateLimitBucket: string;
   rateLimitBucketAria: string;
   showRateLimit: (selected: boolean) => string;
-  followSystem: string;
   light: string;
   dark: string;
   refreshFrequency: string;
@@ -193,12 +189,10 @@ const copy: Record<Language, Copy> = {
     chinese: "中文",
     english: "English",
     theme: "主题",
-    themeSkin: "主题皮肤",
     activeRateLimitBucket: "模型用量桶",
     defaultRateLimitBucket: "默认桶(默认)",
     rateLimitBucketAria: "当前显示模型用量桶",
     showRateLimit: (selected) => (selected ? "正在展示" : "切换展示"),
-    followSystem: "跟随系统",
     light: "亮色",
     dark: "暗色",
     refreshFrequency: "刷新频率",
@@ -260,12 +254,10 @@ const copy: Record<Language, Copy> = {
     chinese: "中文",
     english: "English",
     theme: "Theme",
-    themeSkin: "Skin",
     activeRateLimitBucket: "Rate limit bucket",
     defaultRateLimitBucket: "Default bucket",
     rateLimitBucketAria: "Rate limit bucket",
     showRateLimit: (selected) => (selected ? "Showing" : "Switch"),
-    followSystem: "System",
     light: "Light",
     dark: "Dark",
     refreshFrequency: "Refresh rate",
@@ -606,17 +598,8 @@ function formatBallPercent(percent: number | null) {
   return percent === null ? "--" : `${percent}%`;
 }
 
-function getSystemTheme(): ResolvedTheme {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function resolveTheme(mode: ThemeMode, systemTheme: ResolvedTheme): ResolvedTheme {
-  return mode === "system" ? systemTheme : mode;
-}
-
 function useAppSettings() {
   const [settings, setSettings] = useState<AppSettings>(readSettings);
-  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(getSystemTheme);
 
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
     setSettings((current) => {
@@ -652,15 +635,6 @@ function useAppSettings() {
   }, []);
 
   useEffect(() => {
-    const query = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => setSystemTheme(query.matches ? "dark" : "light");
-
-    handleChange();
-    query.addEventListener("change", handleChange);
-    return () => query.removeEventListener("change", handleChange);
-  }, []);
-
-  useEffect(() => {
     if (!isTauriRuntime()) return;
 
     let disposed = false;
@@ -677,7 +651,7 @@ function useAppSettings() {
     };
   }, [updateSettings]);
 
-  const resolvedTheme = resolveTheme(settings.themeMode, systemTheme);
+  const resolvedTheme = settings.themeMode;
   const text = copy[settings.language];
 
   useEffect(() => {
@@ -808,49 +782,6 @@ function ChoiceButton<T extends string | number | boolean>({
   );
 }
 
-function SkinPreview({ active }: { active: boolean }) {
-  return (
-    <span className={`skin-preview${active ? " skin-preview-active" : ""}`} aria-hidden="true">
-      <span className="skin-preview-ball">
-        <span />
-      </span>
-      <span className="skin-preview-panel">
-        <span />
-        <span />
-      </span>
-    </span>
-  );
-}
-
-function SkinButton({
-  active,
-  description,
-  label,
-  onClick,
-  previewClassName,
-}: {
-  active: boolean;
-  description: string;
-  label: string;
-  onClick: () => void;
-  previewClassName: string;
-}) {
-  return (
-    <button
-      className={`skin-button ${previewClassName}${active ? " skin-button-active" : ""}`}
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-    >
-      <SkinPreview active={active} />
-      <span>
-        <strong>{label}</strong>
-        <small>{description}</small>
-      </span>
-    </button>
-  );
-}
-
 function SettingsFields({
   settings,
   text,
@@ -892,14 +823,7 @@ function SettingsFields({
           <MonitorCog size={15} />
           {text.theme}
         </span>
-        <div className="segmented segmented-compact">
-          <ChoiceButton
-            active={settings.themeMode === "system"}
-            onClick={(themeMode: ThemeMode) => updateSettings({ themeMode })}
-            value="system"
-          >
-            {text.followSystem}
-          </ChoiceButton>
+        <div className="segmented">
           <ChoiceButton
             active={settings.themeMode === "light"}
             onClick={(themeMode: ThemeMode) => updateSettings({ themeMode })}
@@ -1012,24 +936,6 @@ function SettingsFields({
         </div>
       </div>
 
-      <div className="setting-row">
-        <span>
-          <MonitorCog size={15} />
-          {text.themeSkin}
-        </span>
-        <div className="skin-grid">
-          {skinOptions.map((skin) => (
-            <SkinButton
-              active={settings.skin === skin.id}
-              description={skin.description[settings.language]}
-              key={skin.id}
-              label={skin.label[settings.language]}
-              onClick={() => updateSettings({ skin: skin.id })}
-              previewClassName={skin.previewClassName}
-            />
-          ))}
-        </div>
-      </div>
     </section>
   );
 }
@@ -1187,7 +1093,7 @@ function BallView() {
   }, []);
 
   return (
-    <main className="ball-shell" data-skin={settings.skin} data-theme={resolvedTheme}>
+    <main className="ball-shell" data-theme={resolvedTheme}>
       <button
         className={`usage-ball compact-ball usage-ball-${primaryTone} usage-ball-secondary-${secondaryTone}${hasSecondaryWindow ? "" : " usage-ball-single"}`}
         type="button"
@@ -1272,7 +1178,7 @@ function MainPanelView() {
   const activeBucketName = limitName(activeLimit, text);
 
   return (
-    <main className="app-shell" data-skin={settings.skin} data-theme={resolvedTheme}>
+    <main className="app-shell" data-theme={resolvedTheme}>
       <section className="panel main-panel" aria-label={text.appAria}>
         <header
           className="panel-header draggable-header"
@@ -1432,7 +1338,7 @@ function SettingsView() {
   const { settings, updateSettings, setLaunchAtLogin, resolvedTheme, text } = useAppSettings();
 
   return (
-    <main className="settings-shell" data-skin={settings.skin} data-theme={resolvedTheme}>
+    <main className="settings-shell" data-theme={resolvedTheme}>
       <section className="settings-panel">
         <header
           className="settings-header draggable-header"

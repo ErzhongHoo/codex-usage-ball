@@ -753,117 +753,6 @@ h1 {
   padding: 14px;
 }
 
-.skin-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.skin-button {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  min-height: 64px;
-  align-items: center;
-  gap: 9px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0.03)), var(--panel-strong);
-  color: var(--text);
-  box-shadow: var(--card-shadow);
-  cursor: pointer;
-  text-align: left;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    transform 160ms ease;
-}
-
-.skin-button:hover {
-  border-color: var(--good);
-  background: var(--button-hover);
-}
-
-.skin-button:active {
-  transform: translateY(1px);
-}
-
-.skin-button-active {
-  border-color: var(--good);
-  background: var(--button-bg);
-}
-
-.skin-button strong,
-.skin-button small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.skin-button strong {
-  font-size: 12px;
-  font-weight: 760;
-}
-
-.skin-button small {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.2;
-}
-
-.skin-preview {
-  position: relative;
-  display: block;
-  width: 46px;
-  height: 42px;
-  border-radius: 8px;
-  background: var(--preview-bg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-.skin-preview-ball {
-  position: absolute;
-  left: 5px;
-  top: 8px;
-  display: grid;
-  width: 26px;
-  height: 26px;
-  place-items: center;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 48% 48%, var(--preview-panel) 0 52%, transparent 53%),
-    conic-gradient(var(--preview-ring) 0 70%, rgba(0, 0, 0, 0.12) 70% 100%);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.16);
-}
-
-.skin-preview-ball span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  border: 2px solid var(--preview-second);
-}
-
-.skin-preview-panel {
-  position: absolute;
-  right: 5px;
-  top: 9px;
-  display: grid;
-  gap: 4px;
-  width: 16px;
-  padding: 4px 3px;
-  border: 1px solid var(--preview-border);
-  border-radius: 5px;
-  background: var(--preview-panel);
-}
-
-.skin-preview-panel span {
-  height: 3px;
-  border-radius: 99px;
-  background: var(--preview-ring);
-}
-
 .setting-row {
   display: grid;
   gap: 8px;
@@ -958,10 +847,6 @@ h1 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-}
-
-.segmented-compact {
-  grid-template-columns: 1.3fr 1fr 1fr;
 }
 
 .choice-button {

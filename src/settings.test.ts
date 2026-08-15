@@ -10,7 +10,6 @@ describe("normalizeAppSettings", () => {
       launchAtLogin: false,
       proxyEnabled: false,
       proxyUrl: "",
-      skin: "glass",
       activeRateLimitId: "__default__",
     });
   });
@@ -48,15 +47,11 @@ describe("normalizeAppSettings", () => {
     expect(normalizeProxyUrl("x".repeat(2200))).toHaveLength(2048);
   });
 
-  it("保留用户可用皮肤配置", () => {
-    expect(normalizeAppSettings({ skin: "terminal" })).toMatchObject({
-      skin: "terminal",
-    });
-  });
-
-  it("非法皮肤配置回退为默认值", () => {
-    expect(normalizeAppSettings({ skin: "unknown" })).toMatchObject({
-      skin: "glass",
+  it("只保留浅色和深色主题，旧系统主题迁移为浅色", () => {
+    expect(normalizeAppSettings({ themeMode: "dark" })).toMatchObject({ themeMode: "dark" });
+    expect(normalizeAppSettings({ themeMode: "light" })).toMatchObject({ themeMode: "light" });
+    expect(normalizeAppSettings({ themeMode: "system" as unknown })).toMatchObject({
+      themeMode: "light",
     });
   });
 

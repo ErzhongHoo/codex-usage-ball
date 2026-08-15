@@ -73,6 +73,16 @@ describe("悬浮球交互", () => {
   });
 });
 
+describe("主题选项", () => {
+  test("只保留浅色和深色", () => {
+    expect(appSource).toContain('value="light"');
+    expect(appSource).toContain('value="dark"');
+    expect(appSource).not.toContain('value="system"');
+    expect(appSource).not.toContain("skinOptions");
+    expect(appSource).not.toContain("data-skin");
+  });
+});
+
 describe("面板拖拽", () => {
   test("主面板和设置面板标题栏启动窗口拖拽", () => {
     expect(appSource).toContain("function startWindowDrag");
