@@ -12,7 +12,7 @@ export type SkinName =
 export type AppSettings = {
   language: Language;
   themeMode: ThemeMode;
-  refreshIntervalSec: 30 | 60;
+  refreshIntervalSec: 180;
   launchAtLogin: boolean;
   lowNoticeThreshold: number;
   skin: SkinName;
@@ -22,7 +22,7 @@ export type AppSettings = {
 export const defaultSettings: AppSettings = {
   language: "zh-CN",
   themeMode: "system",
-  refreshIntervalSec: 60,
+  refreshIntervalSec: 180,
   launchAtLogin: false,
   lowNoticeThreshold: 15,
   skin: "glass",
@@ -60,7 +60,8 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       parsed.themeMode === "light" || parsed.themeMode === "dark"
         ? parsed.themeMode
         : "system",
-    refreshIntervalSec: parsed.refreshIntervalSec === 30 ? 30 : 60,
+    // Migrate the previous 30/60-second choices to the fixed 3-minute interval.
+    refreshIntervalSec: 180,
     launchAtLogin: parsed.launchAtLogin === true,
     lowNoticeThreshold: normalizeLowNoticeThreshold(parsed.lowNoticeThreshold),
     skin: normalizeSkin(parsed.skin),

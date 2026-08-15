@@ -39,6 +39,16 @@ describe("悬浮球刷新状态", () => {
   });
 });
 
+describe("动态额度窗口", () => {
+  test("根据 windowDurationMins 标记窗口，仅返回周额度时改为单环", () => {
+    expect(appSource).toContain("function formatWindowShortName");
+    expect(appSource).toContain("function availableRateLimitWindows");
+    expect(appSource).toContain("windowData.windowDurationMins === 10080");
+    expect(appSource).toContain("usage-ball-single");
+    expect(appSource).toContain("hasSecondaryWindow ? (");
+  });
+});
+
 describe("悬浮球交互", () => {
   test("单击刷新，双击打开主面板", () => {
     expect(appSource).toContain("const { usage, loadUsage } = useUsageData");

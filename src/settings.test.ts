@@ -6,9 +6,19 @@ describe("normalizeAppSettings", () => {
     expect(normalizeAppSettings({ language: "zh-CN", themeMode: "light" })).toMatchObject({
       language: "zh-CN",
       themeMode: "light",
+      refreshIntervalSec: 180,
       launchAtLogin: false,
       skin: "glass",
       activeRateLimitId: "__default__",
+    });
+  });
+
+  it("将旧版刷新频率迁移为 3 分钟", () => {
+    expect(normalizeAppSettings({ refreshIntervalSec: 30 as unknown })).toMatchObject({
+      refreshIntervalSec: 180,
+    });
+    expect(normalizeAppSettings({ refreshIntervalSec: 60 as unknown })).toMatchObject({
+      refreshIntervalSec: 180,
     });
   });
 

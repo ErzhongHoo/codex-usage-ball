@@ -75,7 +75,7 @@ type RateLimitsResponse = {
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 type WindowKind = "ball" | "main" | "settings";
-type LowNoticeWindowKey = "fiveHour" | "sevenDay";
+type LowNoticeWindowKey = "primary" | "secondary";
 type RateLimitBucketOption = {
   id: string;
   name: string;
@@ -123,7 +123,7 @@ type Copy = {
   light: string;
   dark: string;
   refreshFrequency: string;
-  seconds: (value: number) => string;
+  minutes: (value: number) => string;
   lowNotice: string;
   noticeThreshold: (value: number) => string;
   noticeThresholdAria: string;
@@ -194,7 +194,7 @@ const copy: Record<Language, Copy> = {
     light: "亮色",
     dark: "暗色",
     refreshFrequency: "刷新频率",
-    seconds: (value) => `${value} 秒`,
+    minutes: (value) => `${value} 分钟`,
     lowNotice: "低额度通知",
     noticeThreshold: (value) => `低于 ${value}% 提醒`,
     noticeThresholdAria: "低额度提醒阈值",
@@ -255,7 +255,7 @@ const copy: Record<Language, Copy> = {
     light: "Light",
     dark: "Dark",
     refreshFrequency: "Refresh rate",
-    seconds: (value) => `${value}s`,
+    minutes: (value) => `${value} min`,
     lowNotice: "Low-limit alert",
     noticeThreshold: (value) => `Alert below ${value}%`,
     noticeThresholdAria: "Low-limit alert threshold",
@@ -520,15 +520,15 @@ function useLowLimitNotifications(
       remaining: remainingPercent(activeLimit.primary),
       text,
       threshold,
-      windowKey: "fiveHour",
-      windowName: text.windowFiveHours,
+      windowKey: "primary",
+      windowName: formatWindowName(activeLimit.primary, text.shortFallback, text),
     });
     maybeNotifyLowLimit({
       remaining: remainingPercent(activeLimit.secondary),
       text,
       threshold,
-      windowKey: "sevenDay",
-      windowName: text.windowSevenDays,
+      windowKey: "secondary",
+      windowName: formatWindowName(activeLimit.secondary, text.longFallback, text),
     });
   }, [activeLimit, settings.lowNoticeThreshold, text]);
 }
@@ -559,6 +559,20 @@ function formatWindowName(windowData: RateLimitWindow | null, fallback: string, 
     return text.hourWindow(windowData.windowDurationMins / 60);
   }
   return text.minuteWindow(windowData.windowDurationMins);
+}
+
+function formatWindowShortName(windowData: RateLimitWindow | null, fallback: string, text: Copy) {
+  if (!windowData?.windowDurationMins) return fallback;
+  if (windowData.windowDurationMins === 300) return text.windowFiveHoursShort;
+  if (windowData.windowDurationMins === 10080) return text.windowSevenDaysShort;
+  return fallback;
+}
+
+function availableRateLimitWindows(activeLimit: RateLimitSnapshot | null) {
+  if (!activeLimit) return [];
+  return [activeLimit.primary, activeLimit.secondary].filter(
+    (windowData): windowData is RateLimitWindow => windowData !== null,
+  );
 }
 
 function getTone(percent: number | null) {
@@ -654,14 +668,14 @@ function useAppSettings() {
   return { settings, updateSettings, setLaunchAtLogin, resolvedTheme, text };
 }
 
-function useUsageData(refreshIntervalSec: 30 | 60) {
+function useUsageData(refreshIntervalSec: 180) {
   const [usage, setUsage] = useState<RateLimitsResponse | null>(null);
   const [state, setState] = useState<LoadState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const usageRequestRef = useRef<Promise<void> | null>(null);
 
-  const loadUsage = useCallback(async () => {
+  const loadUsage = useCallback(async (force = false) => {
     if (usageRequestRef.current) {
       return usageRequestRef.current;
     }
@@ -672,7 +686,7 @@ function useUsageData(refreshIntervalSec: 30 | 60) {
 
       try {
         const data = isTauriRuntime()
-          ? await invoke<RateLimitsResponse>("read_rate_limits")
+          ? await invoke<RateLimitsResponse>("read_rate_limits", { force })
           : await Promise.resolve(mockUsage);
 
         setUsage(data);
@@ -886,18 +900,11 @@ function SettingsFields({
         </span>
         <div className="segmented">
           <ChoiceButton
-            active={settings.refreshIntervalSec === 60}
-            onClick={(refreshIntervalSec: 30 | 60) => updateSettings({ refreshIntervalSec })}
-            value={60}
+            active={settings.refreshIntervalSec === 180}
+            onClick={(refreshIntervalSec: 180) => updateSettings({ refreshIntervalSec })}
+            value={180}
           >
-            {text.seconds(60)}
-          </ChoiceButton>
-          <ChoiceButton
-            active={settings.refreshIntervalSec === 30}
-            onClick={(refreshIntervalSec: 30 | 60) => updateSettings({ refreshIntervalSec })}
-            value={30}
-          >
-            {text.seconds(30)}
+            {text.minutes(3)}
           </ChoiceButton>
         </div>
       </div>
@@ -982,17 +989,26 @@ function BallView() {
   const clickRefreshTimerRef = useRef<number | null>(null);
   const activeLimit = resolveActiveLimit(usage, settings.activeRateLimitId);
   useLowLimitNotifications(activeLimit, settings, text);
-  const primaryRemaining = remainingPercent(activeLimit?.primary ?? null);
-  const secondaryRemaining = remainingPercent(activeLimit?.secondary ?? null);
+  const [primaryWindow = null, secondaryWindow = null] = availableRateLimitWindows(activeLimit);
+  const primaryRemaining = remainingPercent(primaryWindow);
+  const secondaryRemaining = remainingPercent(secondaryWindow);
   const primaryTone = getTone(primaryRemaining);
   const secondaryTone = getTone(secondaryRemaining);
   const primaryPercentText = formatBallPercent(primaryRemaining);
   const secondaryPercentText = formatBallPercent(secondaryRemaining);
+  const primaryWindowLabel = formatWindowShortName(primaryWindow, text.shortFallback, text);
+  const secondaryWindowLabel = formatWindowShortName(secondaryWindow, text.longFallback, text);
+  const hasSecondaryWindow = secondaryWindow !== null;
   const ballStyle = {
     "--ball-primary-progress": `${primaryRemaining ?? 0}`,
     "--ball-secondary-progress": `${secondaryRemaining ?? 0}`,
   } as CSSProperties;
-  const ballTitle = `${limitName(activeLimit, text)}：${text.windowFiveHoursShort} ${primaryPercentText} ${text.windowSevenDaysShort} ${secondaryPercentText}`;
+  const ballTitle = [
+    `${limitName(activeLimit, text)}：${primaryWindowLabel} ${primaryPercentText}`,
+    hasSecondaryWindow ? `${secondaryWindowLabel} ${secondaryPercentText}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const clearClickRefreshTimer = useCallback(() => {
     if (clickRefreshTimerRef.current === null) return;
@@ -1067,7 +1083,7 @@ function BallView() {
     clearClickRefreshTimer();
     clickRefreshTimerRef.current = window.setTimeout(() => {
       clickRefreshTimerRef.current = null;
-      void loadUsage();
+      void loadUsage(true);
     }, BALL_CLICK_REFRESH_DELAY_MS);
   }, [clearClickRefreshTimer, loadUsage]);
 
@@ -1106,7 +1122,7 @@ function BallView() {
   return (
     <main className="ball-shell" data-skin={settings.skin} data-theme={resolvedTheme}>
       <button
-        className={`usage-ball compact-ball usage-ball-${primaryTone} usage-ball-secondary-${secondaryTone}`}
+        className={`usage-ball compact-ball usage-ball-${primaryTone} usage-ball-secondary-${secondaryTone}${hasSecondaryWindow ? "" : " usage-ball-single"}`}
         type="button"
         aria-label={text.refresh}
         title={ballTitle}
@@ -1124,17 +1140,19 @@ function BallView() {
           <circle className="ball-ring-progress" cx="56" cy="56" r="50" pathLength="100" />
         </svg>
         <span className="ball-core">
-          <span className="ball-window-label">{text.windowFiveHoursShort}</span>
+          <span className="ball-window-label">{primaryWindowLabel}</span>
           <span className="ball-primary-value">{primaryPercentText}</span>
         </span>
-        <span className="ball-secondary-card" aria-label={`${text.windowSevenDaysShort} ${secondaryPercentText}`}>
-          <svg className="ball-ring-inner" viewBox="0 0 44 44" aria-hidden="true">
-            <circle className="ball-ring-secondary-track" cx="22" cy="22" r="18" pathLength="100" />
-            <circle className="ball-ring-secondary-progress" cx="22" cy="22" r="18" pathLength="100" />
-          </svg>
-          <span className="ball-secondary-label">{text.windowSevenDaysShort}</span>
-          <span className="ball-secondary-value">{secondaryPercentText}</span>
-        </span>
+        {hasSecondaryWindow ? (
+          <span className="ball-secondary-card" aria-label={`${secondaryWindowLabel} ${secondaryPercentText}`}>
+            <svg className="ball-ring-inner" viewBox="0 0 44 44" aria-hidden="true">
+              <circle className="ball-ring-secondary-track" cx="22" cy="22" r="18" pathLength="100" />
+              <circle className="ball-ring-secondary-progress" cx="22" cy="22" r="18" pathLength="100" />
+            </svg>
+            <span className="ball-secondary-label">{secondaryWindowLabel}</span>
+            <span className="ball-secondary-value">{secondaryPercentText}</span>
+          </span>
+        ) : null}
       </button>
       {contextMenu ? (
         <div
@@ -1200,7 +1218,7 @@ function MainPanelView() {
               type="button"
               aria-label={text.refresh}
               title={text.refresh}
-              onClick={loadUsage}
+              onClick={() => void loadUsage(true)}
             >
               <RefreshCcw size={18} />
             </button>

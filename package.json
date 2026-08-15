@@ -1,8 +1,8 @@
 {
   "name": "codex-usage-ball",
   "private": true,
-  "version": "0.1.1",
-  "description": "Codex 用量悬浮球：桌面查看 Codex 5 小时和 7 天额度窗口",
+  "version": "0.1.6",
+  "description": "Codex 用量悬浮球：在 Windows 桌面查看 Codex 剩余用量",
   "keywords": [
     "codex",
     "openai-codex",
@@ -16,7 +16,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/jiaheng6/codex-usage-ball.git"
+    "url": "https://github.com/ErzhongHoo/codex-usage-ball.git"
   },
   "type": "module",
   "scripts": {

@@ -1,8 +1,8 @@
 [package]
 name = "codex-usage-ball"
-version = "0.1.1"
+version = "0.1.6"
 description = "Codex 用量悬浮球"
-authors = ["jiaheng6"]
+authors = ["jiaheng6", "ErzhongHoo"]
 edition = "2021"
 
 [lib]

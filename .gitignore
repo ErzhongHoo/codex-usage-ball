@@ -6,6 +6,7 @@ dist/
 build/
 out/
 src-tauri/target/
+release-assets/
 
 # 日志
 *.log

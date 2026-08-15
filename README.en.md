@@ -2,7 +2,13 @@
 
 [简体中文](README.md)
 
-Codex Usage Ball is a small Windows desktop widget for monitoring Codex account limits. It keeps the 5-hour window, 7-day window, Credits, model buckets, and status visible without reopening Codex pages.
+[![CI](https://github.com/ErzhongHoo/codex-usage-ball/actions/workflows/ci.yml/badge.svg)](https://github.com/ErzhongHoo/codex-usage-ball/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ErzhongHoo/codex-usage-ball)](https://github.com/ErzhongHoo/codex-usage-ball/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Codex Usage Ball is a small Windows desktop widget for monitoring the usage windows currently returned for a Codex account, together with Credits, model buckets, and status.
+
+> This is an unofficial community-maintained tool. It is not affiliated with or endorsed by OpenAI.
 
 ## Screenshots
 
@@ -12,7 +18,7 @@ Codex Usage Ball is a small Windows desktop widget for monitoring Codex account 
 
 ## Features
 
-- Nested progress-ring floating ball: outer ring for the 5-hour remaining limit, inner ring for the 7-day remaining limit.
+- Dynamic usage windows: the outer ring shows the primary window, and the inner ring appears when the service returns a secondary window.
 - Click the floating ball to refresh usage, double-click it to open the main panel, or right-click it for a compact menu.
 - The floating-ball context menu supports hiding the ball and exiting the app.
 - Main panel with remaining limits, reset times, Credits, status, and model usage buckets.
@@ -21,11 +27,11 @@ Codex Usage Ball is a small Windows desktop widget for monitoring Codex account 
 - Light theme, dark theme, and system theme.
 - Six built-in skins: Glass, Night Gauge, Minimal Office, Terminal Green, Sea Teal, and High Contrast.
 - Skin preview and switching in Preferences.
-- Low-limit system notifications for both the 5-hour and 7-day windows.
+- Low-limit system notifications for the currently available primary and secondary windows.
 - Custom low-limit notification threshold from 1 to 100, defaulting to 15.
 - Each window only notifies once for the current threshold. After the remaining limit recovers above the threshold, the next drop below it can notify again.
 - Simplified Chinese and English UI.
-- 30-second or 60-second refresh interval.
+- Automatic usage checks refresh every 3 minutes; manual refresh still queries immediately.
 - Launch at login.
 - Tray menu for showing the main panel, showing or hiding the ball, opening settings, and exiting the app.
 - Transparent borderless windows designed for always-on desktop use.
@@ -34,13 +40,13 @@ Codex Usage Ball is a small Windows desktop widget for monitoring Codex account 
 
 - Floating ball: click to refresh, double-click to open the main panel, right-click for quick actions.
 - Main panel: the top buttons refresh usage, open Preferences, and hide the panel; the footer button exits the app.
-- Preferences: switch language, theme mode, refresh interval, low-limit threshold, launch-at-login, and skin.
+- Preferences: switch language, theme mode, low-limit threshold, launch-at-login, and skin, and view the automatic refresh interval.
 - Dragging: drag the floating ball, the main panel title area, or the Preferences title area to move windows.
 - Hide and restore: the main panel close button only hides the window. Use the tray menu to show it again.
 
 ## Installation
 
-Download the latest Windows installer from [Releases](https://github.com/jiaheng6/codex-usage-ball/releases).
+Download the latest Windows installer from [Releases](https://github.com/ErzhongHoo/codex-usage-ball/releases).
 
 Before running the app, make sure Codex CLI is installed and signed in. The app reads account usage through `codex app-server --listen stdio://`.
 
@@ -96,4 +102,4 @@ GitHub Actions runs tests, builds the Tauri installer, and uploads `codex-usage-
 
 ## License
 
-MIT
+MIT. This version is maintained by [ErzhongHoo](https://github.com/ErzhongHoo), is based on [jiaheng6/codex-usage-ball](https://github.com/jiaheng6/codex-usage-ball), and retains the original copyright notice.

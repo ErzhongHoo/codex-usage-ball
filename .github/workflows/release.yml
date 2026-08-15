@@ -1,4 +1,5 @@
-name: 发布与构建
+name: Release Windows installer
+
 on:
   push:
     tags:
@@ -6,137 +7,62 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "发布 tag，例如 v0.1.0"
+        description: "Release tag, for example v0.1.6"
         required: true
-        default: "v0.1.0"
+        default: "v0.1.6"
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: 构建并上传安装包
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-          - os: macos-latest
-          - os: ubuntu-latest
-    runs-on: ${{ matrix.os }}
+  release:
+    name: Build and publish Windows installer
+    runs-on: windows-latest
 
     steps:
-      - name: 检出代码
+      - name: Check out source
         uses: actions/checkout@v7.0.0
 
-      - name: 安装 pnpm
+      - name: Install pnpm
         uses: pnpm/action-setup@v6.0.9
         with:
           version: 10
 
-      - name: 安装 Node.js
+      - name: Install Node.js
         uses: actions/setup-node@v6.4.0
         with:
           node-version: 22
           cache: pnpm
 
-      - name: 安装 Rust
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: 安装 Linux 打包依赖
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            librsvg2-dev \
-            libayatana-appindicator3-dev \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev
-
-      - name: 安装项目依赖
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: 运行测试
+      - name: Run tests
         run: pnpm test
 
-      - name: 构建安装包
-        run: pnpm tauri build
+      - name: Build NSIS installer
+        run: pnpm tauri build --bundles nsis
 
-      - name: 整理发布产物
-        shell: pwsh
-        id: package
-        run: |
-          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
-          $version = $tag.TrimStart("v")
-          New-Item -ItemType Directory -Path "release-assets" -Force | Out-Null
-
-          $os = $env:RUNNER_OS
-          $files = @()
-          if ($os -eq "Windows") {
-            $source = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*setup.exe" | Select-Object -First 1
-            if (-not $source) {
-              throw "未找到 NSIS 安装包"
-            }
-            $target = "release-assets/codex-usage-ball_${version}_windows_x64-setup.exe"
-            Copy-Item $source.FullName $target -Force
-            $files += $target
-          } elseif ($os -eq "macOS") {
-            $source = Get-ChildItem "src-tauri/target/release/bundle/dmg" -Filter "*.dmg" | Select-Object -First 1
-            if (-not $source) {
-              throw "未找到 macOS 安装包"
-            }
-            $target = "release-assets/codex-usage-ball_${version}_macos_universal.dmg"
-            Copy-Item $source.FullName $target -Force
-            $files += $target
-          } else {
-            $source = Get-ChildItem "src-tauri/target/release/bundle/deb" -Filter "*.deb" | Select-Object -First 1
-            if (-not $source) {
-              throw "未找到 Linux DEB 安装包"
-            }
-            $target = "release-assets/codex-usage-ball_${version}_linux_amd64.deb"
-            Copy-Item $source.FullName $target -Force
-            $files += $target
-
-            $appimage = Get-ChildItem "src-tauri/target/release/bundle/appimage" -Filter "*.AppImage" | Select-Object -First 1
-            if ($appimage) {
-              $appTarget = "release-assets/codex-usage-ball_${version}_linux_amd64.AppImage"
-              Copy-Item $appimage.FullName $appTarget -Force
-              $files += $appTarget
-            }
-          }
-
-          $files -join "`n" | Out-File -FilePath "release-assets/files.txt" -Encoding UTF8 -NoNewline
-
-      - name: 上传 Release
+      - name: Publish release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
-          $assetsFile = "release-assets/files.txt"
-          if (-not (Test-Path $assetsFile)) {
-            throw "未找到发布清单文件: $assetsFile"
-          }
-          
-          gh release view $tag *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --target $env:GITHUB_SHA --title "Codex Usage Ball $tag" --notes "自动构建发布的安装包" *> $null
-            if ($LASTEXITCODE -ne 0) {
-              gh release view $tag *> $null
-              if ($LASTEXITCODE -ne 0) {
-                throw "无法创建或访问 release: $tag"
-              }
-            }
+          $version = $tag.TrimStart("v")
+          $source = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*setup.exe" | Select-Object -First 1
+          if (-not $source) {
+            throw "NSIS installer not found"
           }
 
-          Get-Content $assetsFile -Raw | ForEach-Object {
-            $_.Split("`n") | ForEach-Object {
-              $asset = $_.Trim()
-              if ($asset.Length -gt 0) {
-                gh release upload $tag $asset --clobber
-                if ($LASTEXITCODE -ne 0) {
-                  throw "上传失败: $asset"
-                }
-              }
-            }
+          $asset = "codex-usage-ball_${version}_windows_x64-setup.exe"
+          Copy-Item $source.FullName $asset
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --target $env:GITHUB_SHA --title "Codex Usage Ball $tag" --notes "Windows installer for Codex Usage Ball $tag."
           }
+          gh release upload $tag $asset --clobber

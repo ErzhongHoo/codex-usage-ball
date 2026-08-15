@@ -8,10 +8,10 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{mpsc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Position, Window, WindowEvent};
+use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Position, State, Window, WindowEvent};
 
 const BALL_WINDOW_LABEL: &str = "ball";
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -23,6 +23,7 @@ const MENU_SHOW_SETTINGS: &str = "show_settings";
 const MENU_EXIT: &str = "exit_app";
 const WINDOW_STATE_FILE: &str = "window-positions.json";
 const RIGHT_SNAP_DISTANCE_PX: i32 = 24;
+const RATE_LIMIT_CACHE_TTL: Duration = Duration::from_secs(180);
 
 #[derive(Default)]
 struct TrayState {
@@ -342,7 +343,7 @@ fn handle_window_moved(window: &Window, position: PhysicalPosition<i32>) {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CreditsSnapshot {
     balance: Option<String>,
@@ -350,7 +351,7 @@ struct CreditsSnapshot {
     unlimited: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RateLimitWindow {
     resets_at: Option<i64>,
@@ -358,7 +359,7 @@ struct RateLimitWindow {
     window_duration_mins: Option<i64>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RateLimitSnapshot {
     credits: Option<CreditsSnapshot>,
@@ -370,11 +371,16 @@ struct RateLimitSnapshot {
     secondary: Option<RateLimitWindow>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetAccountRateLimitsResponse {
     rate_limits: RateLimitSnapshot,
     rate_limits_by_limit_id: Option<HashMap<String, RateLimitSnapshot>>,
+}
+
+#[derive(Default)]
+struct RateLimitsCache {
+    value: Option<(Instant, GetAccountRateLimitsResponse)>,
 }
 
 #[derive(Debug)]
@@ -717,7 +723,30 @@ fn install_tray(app: &AppHandle) -> tauri::Result<()> {
 }
 
 #[tauri::command]
-fn read_rate_limits() -> Result<GetAccountRateLimitsResponse, String> {
+fn read_rate_limits(
+    force: bool,
+    cache: State<'_, Mutex<RateLimitsCache>>,
+) -> Result<GetAccountRateLimitsResponse, String> {
+    // Both the floating ball and the hidden main window have timers. Keep the
+    // cache lock during a fetch so simultaneous automatic reads share one query.
+    let mut cache = cache
+        .lock()
+        .map_err(|_| "Codex 用量缓存暂时不可用".to_string())?;
+
+    if !force {
+        if let Some((fetched_at, value)) = cache.value.as_ref() {
+            if fetched_at.elapsed() < RATE_LIMIT_CACHE_TTL {
+                return Ok(value.clone());
+            }
+        }
+    }
+
+    let value = fetch_rate_limits()?;
+    cache.value = Some((Instant::now(), value.clone()));
+    Ok(value)
+}
+
+fn fetch_rate_limits() -> Result<GetAccountRateLimitsResponse, String> {
     let mut child = spawn_codex_app_server()?;
 
     let mut stdin = child
@@ -868,6 +897,7 @@ pub fn run() {
             let position_store = load_window_position_store(app.handle());
             app.manage(Mutex::new(position_store));
             app.manage(Mutex::new(TrayState::default()));
+            app.manage(Mutex::new(RateLimitsCache::default()));
             restore_window_positions(app.handle());
             install_tray(app.handle())?;
             Ok(())

@@ -191,6 +191,20 @@ button {
   white-space: nowrap;
 }
 
+.usage-ball-single .ball-core {
+  inset: 22px;
+  align-content: center;
+}
+
+.usage-ball-single .ball-window-label {
+  margin-top: 0;
+  font-size: 12px;
+}
+
+.usage-ball-single .ball-primary-value {
+  font-size: 34px;
+}
+
 .ball-secondary-card {
   position: absolute;
   left: 50%;
