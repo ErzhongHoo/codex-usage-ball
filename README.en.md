@@ -29,7 +29,7 @@ Codex Usage Ball is a small Windows desktop widget for monitoring the usage wind
 - Custom low-limit notification threshold from 1 to 100, defaulting to 15.
 - Each window only notifies once for the current threshold. After the remaining limit recovers above the threshold, the next drop below it can notify again.
 - Simplified Chinese and English UI.
-- Automatic usage checks refresh every 3 minutes; manual refresh still queries immediately.
+- Automatic usage checks refresh every 5 minutes by default and can be customized in Preferences with a 1-minute minimum; manual refresh still queries immediately.
 - Optional HTTP, HTTPS, SOCKS5, and SOCKS5H proxy without changing the system proxy.
 - Launch at login.
 - Tray menu for showing the main panel, showing or hiding the ball, opening settings, and exiting the app.
@@ -39,7 +39,7 @@ Codex Usage Ball is a small Windows desktop widget for monitoring the usage wind
 
 - Floating ball: click to refresh, double-click to open the main panel, right-click for quick actions.
 - Main panel: the top buttons refresh usage, open Preferences, and hide the panel; the footer button exits the app.
-- Preferences: switch language, light/dark theme, low-limit threshold, and launch-at-login, and view the automatic refresh interval.
+- Preferences: switch language, light/dark theme, automatic refresh interval, low-limit threshold, and launch-at-login.
 - Dragging: drag the floating ball, the main panel title area, or the Preferences title area to move windows.
 - Hide and restore: the main panel close button only hides the window. Use the tray menu to show it again.
 

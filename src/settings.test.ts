@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAppSettings, normalizeProxyUrl } from "./settings";
+import {
+  normalizeAppSettings,
+  normalizeProxyUrl,
+  normalizeRefreshIntervalMinutes,
+} from "./settings";
 
 describe("normalizeAppSettings", () => {
   it("使用默认值归一化主题相关配置", () => {
     expect(normalizeAppSettings({ language: "zh-CN", themeMode: "light" })).toMatchObject({
       language: "zh-CN",
       themeMode: "light",
-      refreshIntervalSec: 180,
+      refreshIntervalMinutes: 5,
       launchAtLogin: false,
       proxyEnabled: false,
       proxyUrl: "",
@@ -14,13 +18,20 @@ describe("normalizeAppSettings", () => {
     });
   });
 
-  it("将旧版刷新频率迁移为 3 分钟", () => {
-    expect(normalizeAppSettings({ refreshIntervalSec: 30 as unknown })).toMatchObject({
-      refreshIntervalSec: 180,
+  it("将旧版固定刷新频率迁移为默认 5 分钟", () => {
+    expect(normalizeAppSettings({ refreshIntervalSec: 180 } as unknown)).toMatchObject({
+      refreshIntervalMinutes: 5,
     });
-    expect(normalizeAppSettings({ refreshIntervalSec: 60 as unknown })).toMatchObject({
-      refreshIntervalSec: 180,
+  });
+
+  it("允许自定义刷新频率且最低为 1 分钟", () => {
+    expect(normalizeAppSettings({ refreshIntervalMinutes: 12 })).toMatchObject({
+      refreshIntervalMinutes: 12,
     });
+    expect(normalizeAppSettings({ refreshIntervalMinutes: 0 })).toMatchObject({
+      refreshIntervalMinutes: 1,
+    });
+    expect(normalizeRefreshIntervalMinutes(Number.NaN)).toBe(5);
   });
 
   it("保留用户开启的开机启动配置", () => {

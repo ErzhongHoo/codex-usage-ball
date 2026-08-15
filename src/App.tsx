@@ -40,6 +40,7 @@ import {
   defaultSettings,
   normalizeAppSettings,
   normalizeLowNoticeThreshold,
+  normalizeRefreshIntervalMinutes,
   type AppSettings,
   type Language,
   type ThemeMode,
@@ -120,7 +121,8 @@ type Copy = {
   light: string;
   dark: string;
   refreshFrequency: string;
-  minutes: (value: number) => string;
+  refreshIntervalAria: string;
+  minuteUnit: string;
   proxy: string;
   enableProxy: string;
   disableProxy: string;
@@ -196,7 +198,8 @@ const copy: Record<Language, Copy> = {
     light: "亮色",
     dark: "暗色",
     refreshFrequency: "刷新频率",
-    minutes: (value) => `${value} 分钟`,
+    refreshIntervalAria: "自动刷新间隔（分钟）",
+    minuteUnit: "分钟",
     proxy: "网络代理",
     enableProxy: "启用",
     disableProxy: "关闭",
@@ -261,7 +264,8 @@ const copy: Record<Language, Copy> = {
     light: "Light",
     dark: "Dark",
     refreshFrequency: "Refresh rate",
-    minutes: (value) => `${value} min`,
+    refreshIntervalAria: "Automatic refresh interval in minutes",
+    minuteUnit: "min",
     proxy: "Network proxy",
     enableProxy: "On",
     disableProxy: "Off",
@@ -662,7 +666,7 @@ function useAppSettings() {
   return { settings, updateSettings, setLaunchAtLogin, resolvedTheme, text };
 }
 
-function useUsageData(refreshIntervalSec: 180, proxyEnabled: boolean, proxyUrl: string) {
+function useUsageData(refreshIntervalMinutes: number, proxyEnabled: boolean, proxyUrl: string) {
   const [usage, setUsage] = useState<RateLimitsResponse | null>(null);
   const [state, setState] = useState<LoadState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -709,12 +713,12 @@ function useUsageData(refreshIntervalSec: 180, proxyEnabled: boolean, proxyUrl: 
     }, PROXY_CHANGE_REFRESH_DELAY_MS);
     const timer = window.setInterval(() => {
       void loadUsage();
-    }, refreshIntervalSec * 1000);
+    }, refreshIntervalMinutes * 60 * 1000);
     return () => {
       window.clearTimeout(refreshAfterProxyChange);
       window.clearInterval(timer);
     };
-  }, [loadUsage, refreshIntervalSec]);
+  }, [loadUsage, refreshIntervalMinutes]);
 
   return { usage, state, error, lastUpdatedAt, loadUsage };
 }
@@ -843,19 +847,27 @@ function SettingsFields({
         </div>
       </div>
 
-      <div className="setting-row">
+      <div className="setting-row inline-setting">
         <span>
           <Clock3 size={15} />
           {text.refreshFrequency}
         </span>
-        <div className="segmented">
-          <ChoiceButton
-            active={settings.refreshIntervalSec === 180}
-            onClick={(refreshIntervalSec: 180) => updateSettings({ refreshIntervalSec })}
-            value={180}
-          >
-            {text.minutes(3)}
-          </ChoiceButton>
+        <div className="refresh-interval-control">
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={settings.refreshIntervalMinutes}
+            aria-label={text.refreshIntervalAria}
+            onChange={(event) =>
+              updateSettings({
+                refreshIntervalMinutes: normalizeRefreshIntervalMinutes(
+                  Number(event.currentTarget.value),
+                ),
+              })
+            }
+          />
+          <span>{text.minuteUnit}</span>
         </div>
       </div>
 
@@ -943,7 +955,7 @@ function SettingsFields({
 function BallView() {
   const { settings, resolvedTheme, text } = useAppSettings();
   const { usage, loadUsage } = useUsageData(
-    settings.refreshIntervalSec,
+    settings.refreshIntervalMinutes,
     settings.proxyEnabled,
     settings.proxyUrl,
   );
@@ -1148,7 +1160,7 @@ function BallView() {
 function MainPanelView() {
   const { settings, resolvedTheme, text, updateSettings } = useAppSettings();
   const { usage, state, error, lastUpdatedAt, loadUsage } = useUsageData(
-    settings.refreshIntervalSec,
+    settings.refreshIntervalMinutes,
     settings.proxyEnabled,
     settings.proxyUrl,
   );

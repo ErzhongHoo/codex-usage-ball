@@ -83,6 +83,15 @@ describe("主题选项", () => {
   });
 });
 
+describe("刷新频率", () => {
+  test("允许按分钟自定义且最低为 1 分钟", () => {
+    expect(appSource).toContain("settings.refreshIntervalMinutes");
+    expect(appSource).toContain("normalizeRefreshIntervalMinutes");
+    expect(appSource).toContain("refreshIntervalMinutes * 60 * 1000");
+    expect(appSource).toContain("min={1}");
+  });
+});
+
 describe("面板拖拽", () => {
   test("主面板和设置面板标题栏启动窗口拖拽", () => {
     expect(appSource).toContain("function startWindowDrag");

@@ -4,7 +4,7 @@ export type ThemeMode = "light" | "dark";
 export type AppSettings = {
   language: Language;
   themeMode: ThemeMode;
-  refreshIntervalSec: 180;
+  refreshIntervalMinutes: number;
   launchAtLogin: boolean;
   lowNoticeThreshold: number;
   proxyEnabled: boolean;
@@ -15,7 +15,7 @@ export type AppSettings = {
 export const defaultSettings: AppSettings = {
   language: "zh-CN",
   themeMode: "light",
-  refreshIntervalSec: 180,
+  refreshIntervalMinutes: 5,
   launchAtLogin: false,
   lowNoticeThreshold: 15,
   proxyEnabled: false,
@@ -31,6 +31,15 @@ export function normalizeLowNoticeThreshold(value: unknown): number {
   return Math.min(100, Math.max(1, Math.round(value)));
 }
 
+export function normalizeRefreshIntervalMinutes(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return defaultSettings.refreshIntervalMinutes;
+  }
+
+  // Keep the interval within the maximum delay supported by browser timers.
+  return Math.min(35_791, Math.max(1, Math.round(value)));
+}
+
 export function normalizeProxyUrl(value: unknown): string {
   return typeof value === "string" ? value.trim().slice(0, 2048) : "";
 }
@@ -42,8 +51,8 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   return {
     language: parsed.language === "en-US" ? "en-US" : "zh-CN",
     themeMode: parsed.themeMode === "dark" ? "dark" : "light",
-    // Migrate the previous 30/60-second choices to the fixed 3-minute interval.
-    refreshIntervalSec: 180,
+    // The old refreshIntervalSec field represented a fixed interval, so migrate it to the new default.
+    refreshIntervalMinutes: normalizeRefreshIntervalMinutes(parsed.refreshIntervalMinutes),
     launchAtLogin: parsed.launchAtLogin === true,
     lowNoticeThreshold: normalizeLowNoticeThreshold(parsed.lowNoticeThreshold),
     proxyEnabled: parsed.proxyEnabled === true,

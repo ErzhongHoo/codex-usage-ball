@@ -783,7 +783,8 @@ h1 {
   font-weight: 700;
 }
 
-.threshold-control {
+.threshold-control,
+.refresh-interval-control {
   display: inline-flex;
   min-width: 0;
   align-items: center;
@@ -791,7 +792,8 @@ h1 {
   gap: 8px;
 }
 
-.threshold-control input {
+.threshold-control input,
+.refresh-interval-control input {
   width: 66px;
   height: 34px;
   padding: 0 8px;
@@ -807,9 +809,16 @@ h1 {
   text-align: center;
 }
 
-.threshold-control input:focus {
+.threshold-control input:focus,
+.refresh-interval-control input:focus {
   border-color: var(--good);
   box-shadow: var(--button-shadow), 0 0 0 3px color-mix(in srgb, var(--good) 18%, transparent);
+}
+
+.refresh-interval-control span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .proxy-control {
