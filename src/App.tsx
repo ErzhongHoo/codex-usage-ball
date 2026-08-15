@@ -18,6 +18,7 @@ import {
   Languages,
   MonitorCog,
   Moon,
+  Network,
   Power,
   RefreshCcw,
   Settings,
@@ -124,6 +125,12 @@ type Copy = {
   dark: string;
   refreshFrequency: string;
   minutes: (value: number) => string;
+  proxy: string;
+  enableProxy: string;
+  disableProxy: string;
+  proxyUrlAria: string;
+  proxyUrlPlaceholder: string;
+  proxyHint: string;
   lowNotice: string;
   noticeThreshold: (value: number) => string;
   noticeThresholdAria: string;
@@ -149,6 +156,7 @@ const DRAG_START_THRESHOLD_PX = 5;
 const BALL_CLICK_REFRESH_DELAY_MS = 220;
 const BALL_CONTEXT_MENU_WIDTH = 104;
 const BALL_CONTEXT_MENU_HEIGHT = 78;
+const PROXY_CHANGE_REFRESH_DELAY_MS = 600;
 const DEFAULT_RATE_LIMIT_ID = "__default__";
 
 const copy: Record<Language, Copy> = {
@@ -195,6 +203,12 @@ const copy: Record<Language, Copy> = {
     dark: "暗色",
     refreshFrequency: "刷新频率",
     minutes: (value) => `${value} 分钟`,
+    proxy: "网络代理",
+    enableProxy: "启用",
+    disableProxy: "关闭",
+    proxyUrlAria: "代理服务器地址",
+    proxyUrlPlaceholder: "http://127.0.0.1:7890",
+    proxyHint: "支持 HTTP、HTTPS、SOCKS5；仅传给 Codex 子进程。",
     lowNotice: "低额度通知",
     noticeThreshold: (value) => `低于 ${value}% 提醒`,
     noticeThresholdAria: "低额度提醒阈值",
@@ -256,6 +270,12 @@ const copy: Record<Language, Copy> = {
     dark: "Dark",
     refreshFrequency: "Refresh rate",
     minutes: (value) => `${value} min`,
+    proxy: "Network proxy",
+    enableProxy: "On",
+    disableProxy: "Off",
+    proxyUrlAria: "Proxy server URL",
+    proxyUrlPlaceholder: "http://127.0.0.1:7890",
+    proxyHint: "Supports HTTP, HTTPS, and SOCKS5; passed only to the Codex child process.",
     lowNotice: "Low-limit alert",
     noticeThreshold: (value) => `Alert below ${value}%`,
     noticeThresholdAria: "Low-limit alert threshold",
@@ -668,12 +688,13 @@ function useAppSettings() {
   return { settings, updateSettings, setLaunchAtLogin, resolvedTheme, text };
 }
 
-function useUsageData(refreshIntervalSec: 180) {
+function useUsageData(refreshIntervalSec: 180, proxyEnabled: boolean, proxyUrl: string) {
   const [usage, setUsage] = useState<RateLimitsResponse | null>(null);
   const [state, setState] = useState<LoadState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const usageRequestRef = useRef<Promise<void> | null>(null);
+  const activeProxyUrl = proxyEnabled && proxyUrl.trim() ? proxyUrl.trim() : null;
 
   const loadUsage = useCallback(async (force = false) => {
     if (usageRequestRef.current) {
@@ -686,7 +707,7 @@ function useUsageData(refreshIntervalSec: 180) {
 
       try {
         const data = isTauriRuntime()
-          ? await invoke<RateLimitsResponse>("read_rate_limits", { force })
+          ? await invoke<RateLimitsResponse>("read_rate_limits", { force, proxyUrl: activeProxyUrl })
           : await Promise.resolve(mockUsage);
 
         setUsage(data);
@@ -706,14 +727,19 @@ function useUsageData(refreshIntervalSec: 180) {
     });
 
     return request;
-  }, []);
+  }, [activeProxyUrl]);
 
   useEffect(() => {
-    void loadUsage();
+    const refreshAfterProxyChange = window.setTimeout(() => {
+      void loadUsage();
+    }, PROXY_CHANGE_REFRESH_DELAY_MS);
     const timer = window.setInterval(() => {
       void loadUsage();
     }, refreshIntervalSec * 1000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(refreshAfterProxyChange);
+      window.clearInterval(timer);
+    };
   }, [loadUsage, refreshIntervalSec]);
 
   return { usage, state, error, lastUpdatedAt, loadUsage };
@@ -909,6 +935,43 @@ function SettingsFields({
         </div>
       </div>
 
+      <div className="setting-row proxy-setting">
+        <span>
+          <Network size={15} />
+          {text.proxy}
+        </span>
+        <div className="segmented">
+          <ChoiceButton
+            active={settings.proxyEnabled}
+            onClick={(proxyEnabled: boolean) => updateSettings({ proxyEnabled })}
+            value={true}
+          >
+            {text.enableProxy}
+          </ChoiceButton>
+          <ChoiceButton
+            active={!settings.proxyEnabled}
+            onClick={(proxyEnabled: boolean) => updateSettings({ proxyEnabled })}
+            value={false}
+          >
+            {text.disableProxy}
+          </ChoiceButton>
+        </div>
+        {settings.proxyEnabled ? (
+          <div className="proxy-control">
+            <input
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={settings.proxyUrl}
+              aria-label={text.proxyUrlAria}
+              placeholder={text.proxyUrlPlaceholder}
+              onChange={(event) => updateSettings({ proxyUrl: event.currentTarget.value })}
+            />
+            <small>{text.proxyHint}</small>
+          </div>
+        ) : null}
+      </div>
+
       <div className="setting-row inline-setting">
         <span>{text.lowNotice}</span>
         <div className="threshold-control">
@@ -973,7 +1036,11 @@ function SettingsFields({
 
 function BallView() {
   const { settings, resolvedTheme, text } = useAppSettings();
-  const { usage, loadUsage } = useUsageData(settings.refreshIntervalSec);
+  const { usage, loadUsage } = useUsageData(
+    settings.refreshIntervalSec,
+    settings.proxyEnabled,
+    settings.proxyUrl,
+  );
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const dragStartRef = useRef<{
     x: number;
@@ -1174,7 +1241,11 @@ function BallView() {
 
 function MainPanelView() {
   const { settings, resolvedTheme, text, updateSettings } = useAppSettings();
-  const { usage, state, error, lastUpdatedAt, loadUsage } = useUsageData(settings.refreshIntervalSec);
+  const { usage, state, error, lastUpdatedAt, loadUsage } = useUsageData(
+    settings.refreshIntervalSec,
+    settings.proxyEnabled,
+    settings.proxyUrl,
+  );
   const [showLimits, setShowLimits] = useState(true);
 
   const activeLimit = resolveActiveLimit(usage, settings.activeRateLimitId);

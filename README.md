@@ -32,6 +32,7 @@ Codex 用量悬浮球是一个 Windows 桌面小工具，用于常驻查看 Code
 - 同一窗口在当前阈值下只提醒一次；额度恢复到阈值以上后，下次再次低于阈值会重新提醒。
 - 支持中文和英文界面。
 - 自动用量查询每 3 分钟刷新一次；手动刷新仍会立即查询。
+- 可选 HTTP、HTTPS、SOCKS5 和 SOCKS5H 网络代理，不修改系统代理。
 - 支持开机自启。
 - 系统托盘菜单支持显示主面板、显示/隐藏悬浮球、打开设置和退出程序。
 - 透明窗口无明显边框，适合桌面常驻。
@@ -49,6 +50,10 @@ Codex 用量悬浮球是一个 Windows 桌面小工具，用于常驻查看 Code
 从 [Releases](https://github.com/ErzhongHoo/codex-usage-ball/releases) 下载最新 Windows 安装包并安装。
 
 运行前请确保本机已经安装并登录 Codex CLI。应用会通过 `codex app-server --listen stdio://` 读取账户用量。
+
+## 网络代理
+
+在“偏好设置 → 网络代理”中启用代理并填写完整地址，例如 `http://127.0.0.1:7890` 或 `socks5://127.0.0.1:1080`。代理配置保存在当前用户的本机应用设置中，只会通过 `HTTP_PROXY`、`HTTPS_PROXY` 和 `ALL_PROXY` 环境变量传给应用启动的 Codex 子进程，不会修改 Windows 系统代理。
 
 ## Codex CLI 定位
 

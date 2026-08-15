@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAppSettings } from "./settings";
+import { normalizeAppSettings, normalizeProxyUrl } from "./settings";
 
 describe("normalizeAppSettings", () => {
   it("使用默认值归一化主题相关配置", () => {
@@ -8,6 +8,8 @@ describe("normalizeAppSettings", () => {
       themeMode: "light",
       refreshIntervalSec: 180,
       launchAtLogin: false,
+      proxyEnabled: false,
+      proxyUrl: "",
       skin: "glass",
       activeRateLimitId: "__default__",
     });
@@ -26,6 +28,24 @@ describe("normalizeAppSettings", () => {
     expect(normalizeAppSettings({ launchAtLogin: true })).toMatchObject({
       launchAtLogin: true,
     });
+  });
+
+  it("保留并清理代理配置", () => {
+    expect(normalizeAppSettings({
+      proxyEnabled: true,
+      proxyUrl: "  http://127.0.0.1:7890  ",
+    })).toMatchObject({
+      proxyEnabled: true,
+      proxyUrl: "http://127.0.0.1:7890",
+    });
+  });
+
+  it("非法代理配置回退为关闭和空地址", () => {
+    expect(normalizeAppSettings({ proxyEnabled: "true", proxyUrl: 7890 })).toMatchObject({
+      proxyEnabled: false,
+      proxyUrl: "",
+    });
+    expect(normalizeProxyUrl("x".repeat(2200))).toHaveLength(2048);
   });
 
   it("保留用户可用皮肤配置", () => {

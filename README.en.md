@@ -32,6 +32,7 @@ Codex Usage Ball is a small Windows desktop widget for monitoring the usage wind
 - Each window only notifies once for the current threshold. After the remaining limit recovers above the threshold, the next drop below it can notify again.
 - Simplified Chinese and English UI.
 - Automatic usage checks refresh every 3 minutes; manual refresh still queries immediately.
+- Optional HTTP, HTTPS, SOCKS5, and SOCKS5H proxy without changing the system proxy.
 - Launch at login.
 - Tray menu for showing the main panel, showing or hiding the ball, opening settings, and exiting the app.
 - Transparent borderless windows designed for always-on desktop use.
@@ -49,6 +50,10 @@ Codex Usage Ball is a small Windows desktop widget for monitoring the usage wind
 Download the latest Windows installer from [Releases](https://github.com/ErzhongHoo/codex-usage-ball/releases).
 
 Before running the app, make sure Codex CLI is installed and signed in. The app reads account usage through `codex app-server --listen stdio://`.
+
+## Network Proxy
+
+Enable the proxy in **Preferences → Network proxy** and enter a complete URL such as `http://127.0.0.1:7890` or `socks5://127.0.0.1:1080`. The value is stored in the current user's local app settings and is passed only to the spawned Codex child process through the `HTTP_PROXY`, `HTTPS_PROXY`, and `ALL_PROXY` environment variables. It does not modify the Windows system proxy.
 
 ## Codex CLI Discovery
 

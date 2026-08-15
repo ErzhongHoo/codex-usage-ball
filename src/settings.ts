@@ -15,6 +15,8 @@ export type AppSettings = {
   refreshIntervalSec: 180;
   launchAtLogin: boolean;
   lowNoticeThreshold: number;
+  proxyEnabled: boolean;
+  proxyUrl: string;
   skin: SkinName;
   activeRateLimitId: string;
 };
@@ -25,6 +27,8 @@ export const defaultSettings: AppSettings = {
   refreshIntervalSec: 180,
   launchAtLogin: false,
   lowNoticeThreshold: 15,
+  proxyEnabled: false,
+  proxyUrl: "",
   skin: "glass",
   activeRateLimitId: "__default__",
 };
@@ -50,6 +54,10 @@ export function normalizeLowNoticeThreshold(value: unknown): number {
   return Math.min(100, Math.max(1, Math.round(value)));
 }
 
+export function normalizeProxyUrl(value: unknown): string {
+  return typeof value === "string" ? value.trim().slice(0, 2048) : "";
+}
+
 export function normalizeAppSettings(value: unknown): AppSettings {
   const parsed =
     value && typeof value === "object" ? (value as Partial<AppSettings>) : {};
@@ -64,6 +72,8 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     refreshIntervalSec: 180,
     launchAtLogin: parsed.launchAtLogin === true,
     lowNoticeThreshold: normalizeLowNoticeThreshold(parsed.lowNoticeThreshold),
+    proxyEnabled: parsed.proxyEnabled === true,
+    proxyUrl: normalizeProxyUrl(parsed.proxyUrl),
     skin: normalizeSkin(parsed.skin),
     activeRateLimitId:
       typeof parsed.activeRateLimitId === "string" ? parsed.activeRateLimitId : defaultSettings.activeRateLimitId,

@@ -923,6 +923,37 @@ h1 {
   box-shadow: var(--button-shadow), 0 0 0 3px color-mix(in srgb, var(--good) 18%, transparent);
 }
 
+.proxy-control {
+  display: grid;
+  gap: 6px;
+}
+
+.proxy-control input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0.03)), var(--panel-strong);
+  box-shadow: var(--button-shadow);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.proxy-control input:focus {
+  border-color: var(--good);
+  box-shadow: var(--button-shadow), 0 0 0 3px color-mix(in srgb, var(--good) 18%, transparent);
+}
+
+.proxy-control small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .segmented {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

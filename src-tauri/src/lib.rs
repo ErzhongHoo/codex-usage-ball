@@ -380,7 +380,13 @@ struct GetAccountRateLimitsResponse {
 
 #[derive(Default)]
 struct RateLimitsCache {
-    value: Option<(Instant, GetAccountRateLimitsResponse)>,
+    value: Option<CachedRateLimits>,
+}
+
+struct CachedRateLimits {
+    fetched_at: Instant,
+    proxy_url: Option<String>,
+    value: GetAccountRateLimitsResponse,
 }
 
 #[derive(Debug)]
@@ -602,9 +608,52 @@ fn collect_stderr(rx: &mpsc::Receiver<String>) -> String {
     lines.join("\n")
 }
 
-fn spawn_codex_app_server() -> Result<std::process::Child, String> {
+fn normalize_proxy_url(proxy_url: Option<String>) -> Result<Option<String>, String> {
+    let Some(proxy_url) = proxy_url else {
+        return Ok(None);
+    };
+    let proxy_url = proxy_url.trim();
+    if proxy_url.is_empty() {
+        return Ok(None);
+    }
+    if proxy_url.len() > 2048 || proxy_url.chars().any(char::is_whitespace) {
+        return Err("代理地址格式无效".to_string());
+    }
+
+    let scheme = proxy_url
+        .split_once("://")
+        .map(|(scheme, _)| scheme.to_ascii_lowercase());
+    if !matches!(
+        scheme.as_deref(),
+        Some("http" | "https" | "socks5" | "socks5h")
+    ) {
+        return Err("代理地址必须以 http://、https://、socks5:// 或 socks5h:// 开头".to_string());
+    }
+
+    Ok(Some(proxy_url.to_string()))
+}
+
+fn apply_proxy_environment(command: &mut Command, proxy_url: Option<&str>) {
+    let Some(proxy_url) = proxy_url else {
+        return;
+    };
+
+    for name in [
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ] {
+        command.env(name, proxy_url);
+    }
+}
+
+fn spawn_codex_app_server(proxy_url: Option<&str>) -> Result<std::process::Child, String> {
     let launcher = find_codex_launcher()?;
     let mut command = launcher.command();
+    apply_proxy_environment(&mut command, proxy_url);
     hide_child_console(&mut command);
     command
         .stdin(Stdio::piped())
@@ -725,8 +774,10 @@ fn install_tray(app: &AppHandle) -> tauri::Result<()> {
 #[tauri::command]
 fn read_rate_limits(
     force: bool,
+    proxy_url: Option<String>,
     cache: State<'_, Mutex<RateLimitsCache>>,
 ) -> Result<GetAccountRateLimitsResponse, String> {
+    let proxy_url = normalize_proxy_url(proxy_url)?;
     // Both the floating ball and the hidden main window have timers. Keep the
     // cache lock during a fetch so simultaneous automatic reads share one query.
     let mut cache = cache
@@ -734,20 +785,24 @@ fn read_rate_limits(
         .map_err(|_| "Codex 用量缓存暂时不可用".to_string())?;
 
     if !force {
-        if let Some((fetched_at, value)) = cache.value.as_ref() {
-            if fetched_at.elapsed() < RATE_LIMIT_CACHE_TTL {
-                return Ok(value.clone());
+        if let Some(cached) = cache.value.as_ref() {
+            if cached.proxy_url == proxy_url && cached.fetched_at.elapsed() < RATE_LIMIT_CACHE_TTL {
+                return Ok(cached.value.clone());
             }
         }
     }
 
-    let value = fetch_rate_limits()?;
-    cache.value = Some((Instant::now(), value.clone()));
+    let value = fetch_rate_limits(proxy_url.as_deref())?;
+    cache.value = Some(CachedRateLimits {
+        fetched_at: Instant::now(),
+        proxy_url,
+        value: value.clone(),
+    });
     Ok(value)
 }
 
-fn fetch_rate_limits() -> Result<GetAccountRateLimitsResponse, String> {
-    let mut child = spawn_codex_app_server()?;
+fn fetch_rate_limits(proxy_url: Option<&str>) -> Result<GetAccountRateLimitsResponse, String> {
+    let mut child = spawn_codex_app_server(proxy_url)?;
 
     let mut stdin = child
         .stdin
@@ -1027,6 +1082,30 @@ mod tests {
                 snapped_to_right: false,
             }
         );
+    }
+
+    #[test]
+    fn 支持常用代理协议并清理首尾空格() {
+        assert_eq!(
+            normalize_proxy_url(Some("  http://127.0.0.1:7890  ".to_string())).unwrap(),
+            Some("http://127.0.0.1:7890".to_string())
+        );
+        assert_eq!(
+            normalize_proxy_url(Some("socks5://127.0.0.1:1080".to_string())).unwrap(),
+            Some("socks5://127.0.0.1:1080".to_string())
+        );
+    }
+
+    #[test]
+    fn 空代理等同于不启用代理() {
+        assert_eq!(normalize_proxy_url(None).unwrap(), None);
+        assert_eq!(normalize_proxy_url(Some("   ".to_string())).unwrap(), None);
+    }
+
+    #[test]
+    fn 拒绝未知协议或包含空格的代理地址() {
+        assert!(normalize_proxy_url(Some("ftp://127.0.0.1:21".to_string())).is_err());
+        assert!(normalize_proxy_url(Some("http://127.0.0.1: 7890".to_string())).is_err());
     }
 }
 
