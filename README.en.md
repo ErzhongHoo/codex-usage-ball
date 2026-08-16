@@ -22,7 +22,7 @@ Codex Usage Ball is a small Windows desktop widget for monitoring the usage wind
 - Click the floating ball to refresh usage, double-click it to open the main panel, or right-click it for a compact menu.
 - The floating-ball context menu supports hiding the ball and exiting the app.
 - Main panel with remaining limits, reset times, Credits, status, and model usage buckets.
-- Draggable floating ball, main panel, and settings window with persisted positions.
+- Draggable floating ball, main panel, and settings window; movement is coalesced per frame and positions are saved after movement stops.
 - The ball snaps to the right edge by default. Drag it away to pin it anywhere, or drag it back near the right edge to snap again.
 - The floating ball can be resized from 88–160 pixels in Preferences and displays only remaining numbers and percentages without window labels.
 - Light and dark themes.

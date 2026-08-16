@@ -982,6 +982,8 @@ function BallView() {
     windowY: number;
     ready: boolean;
   } | null>(null);
+  const pendingBallPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const dragAnimationFrameRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
   const clickRefreshTimerRef = useRef<number | null>(null);
   const activeLimit = resolveActiveLimit(usage, settings.activeRateLimitId);
@@ -1018,7 +1020,36 @@ function BallView() {
 
   useEffect(() => clearClickRefreshTimer, [clearClickRefreshTimer]);
 
+  const flushBallPosition = useCallback(() => {
+    dragAnimationFrameRef.current = null;
+    const position = pendingBallPositionRef.current;
+    pendingBallPositionRef.current = null;
+    if (!position) return;
+
+    void getCurrentWindow().setPosition(new PhysicalPosition(position.x, position.y));
+  }, []);
+
+  const scheduleBallPosition = useCallback((x: number, y: number) => {
+    pendingBallPositionRef.current = { x, y };
+    if (dragAnimationFrameRef.current !== null) return;
+    dragAnimationFrameRef.current = window.requestAnimationFrame(flushBallPosition);
+  }, [flushBallPosition]);
+
+  const flushPendingBallPosition = useCallback(() => {
+    if (dragAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(dragAnimationFrameRef.current);
+    }
+    flushBallPosition();
+  }, [flushBallPosition]);
+
+  useEffect(() => () => {
+    if (dragAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(dragAnimationFrameRef.current);
+    }
+  }, []);
+
   const resetDragState = useCallback((event?: PointerEvent<HTMLButtonElement>) => {
+    flushPendingBallPosition();
     if (event?.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -1026,7 +1057,7 @@ function BallView() {
     window.setTimeout(() => {
       suppressClickRef.current = false;
     }, 0);
-  }, []);
+  }, [flushPendingBallPosition]);
 
   const handleBallPointerDown = useCallback((event: PointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
@@ -1071,8 +1102,8 @@ function BallView() {
     suppressClickRef.current = true;
     const nextX = Math.round(start.windowX + (event.screenX - start.x) * start.scaleFactor);
     const nextY = Math.round(start.windowY + (event.screenY - start.y) * start.scaleFactor);
-    void getCurrentWindow().setPosition(new PhysicalPosition(nextX, nextY));
-  }, [resetDragState]);
+    scheduleBallPosition(nextX, nextY);
+  }, [scheduleBallPosition]);
 
   const handleBallClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     if (suppressClickRef.current) {

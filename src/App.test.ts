@@ -79,6 +79,23 @@ describe("悬浮球交互", () => {
   });
 });
 
+describe("拖动性能", () => {
+  test("悬浮球移动按动画帧合并", () => {
+    expect(appSource).toContain("pendingBallPositionRef");
+    expect(appSource).toContain("requestAnimationFrame");
+    expect(appSource).toContain("cancelAnimationFrame");
+    expect(appSource).not.toContain(
+      "void getCurrentWindow().setPosition(new PhysicalPosition(nextX, nextY));",
+    );
+  });
+
+  test("窗口位置在停止移动后防抖保存", () => {
+    expect(rustSource).toContain("WINDOW_POSITION_SAVE_DEBOUNCE");
+    expect(rustSource).toContain("WindowPositionSaveState");
+    expect(rustSource).toContain("recv_timeout(WINDOW_POSITION_SAVE_DEBOUNCE)");
+  });
+});
+
 describe("主题选项", () => {
   test("只保留浅色和深色", () => {
     expect(appSource).toContain('value="light"');

@@ -30,10 +30,15 @@ const BALL_MIN_SIZE: u32 = 88;
 const BALL_MAX_SIZE: u32 = 160;
 const BALL_WINDOW_EXTRA_HEIGHT: u32 = 28;
 const RATE_LIMIT_CACHE_TTL: Duration = Duration::from_secs(180);
+const WINDOW_POSITION_SAVE_DEBOUNCE: Duration = Duration::from_millis(250);
 
 #[derive(Default)]
 struct TrayState {
     ball_toggle_item: Option<CheckMenuItem<tauri::Wry>>,
+}
+
+struct WindowPositionSaveState {
+    sender: mpsc::Sender<()>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -231,6 +236,41 @@ fn save_window_position_store(app: &AppHandle, store: &WindowPositionStore) -> R
     fs::write(path, content).map_err(|err| format!("窗口位置保存失败：{err}"))
 }
 
+fn save_managed_window_positions(app: &AppHandle) {
+    let Some(position_store) = app.try_state::<Mutex<WindowPositionStore>>() else {
+        return;
+    };
+    let Some(store) = position_store.lock().ok().map(|store| store.clone()) else {
+        return;
+    };
+    let _ = save_window_position_store(app, &store);
+}
+
+fn start_window_position_save_worker(app: AppHandle) -> WindowPositionSaveState {
+    let (sender, receiver) = mpsc::channel::<()>();
+    std::thread::spawn(move || loop {
+        if receiver.recv().is_err() {
+            break;
+        }
+
+        loop {
+            match receiver.recv_timeout(WINDOW_POSITION_SAVE_DEBOUNCE) {
+                Ok(()) => continue,
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    save_managed_window_positions(&app);
+                    break;
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    save_managed_window_positions(&app);
+                    return;
+                }
+            }
+        }
+    });
+
+    WindowPositionSaveState { sender }
+}
+
 fn monitor_for_window(window: &Window) -> Option<tauri::Monitor> {
     window
         .current_monitor()
@@ -342,18 +382,17 @@ fn handle_window_moved(window: &Window, position: PhysicalPosition<i32>) {
     let Some(position_store) = app.try_state::<Mutex<WindowPositionStore>>() else {
         return;
     };
-    let Ok(store) = position_store.lock().map(|mut store| {
-        if store.set(label, settled) {
-            Some(store.clone())
-        } else {
-            None
-        }
-    }) else {
+    let Ok(changed) = position_store
+        .lock()
+        .map(|mut store| store.set(label, settled))
+    else {
         return;
     };
 
-    if let Some(store) = store {
-        let _ = save_window_position_store(&app, &store);
+    if changed {
+        if let Some(save_state) = app.try_state::<WindowPositionSaveState>() {
+            let _ = save_state.sender.send(());
+        }
     }
 }
 
@@ -765,7 +804,10 @@ fn install_tray(app: &AppHandle) -> tauri::Result<()> {
             MENU_SHOW_SETTINGS => {
                 let _ = show_window(app, SETTINGS_WINDOW_LABEL);
             }
-            MENU_EXIT => app.exit(0),
+            MENU_EXIT => {
+                save_managed_window_positions(app);
+                app.exit(0);
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| match event {
@@ -1001,6 +1043,7 @@ fn hide_settings_window(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn exit_app(app: AppHandle) {
+    save_managed_window_positions(&app);
     app.exit(0);
 }
 
@@ -1016,6 +1059,8 @@ pub fn run() {
         .setup(|app| {
             let position_store = load_window_position_store(app.handle());
             app.manage(Mutex::new(position_store));
+            let position_save_state = start_window_position_save_worker(app.handle().clone());
+            app.manage(position_save_state);
             app.manage(Mutex::new(TrayState::default()));
             app.manage(Mutex::new(RateLimitsCache::default()));
             restore_window_positions(app.handle());
