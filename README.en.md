@@ -48,6 +48,14 @@ Codex Usage Ball is a small Windows desktop widget for monitoring the usage wind
 
 Download the latest Windows installer from [Releases](https://github.com/ErzhongHoo/codex-usage-ball/releases).
 
+After installation, launch the app in any of these ways:
+
+- Double-click the **Codex 用量悬浮球** desktop shortcut.
+- Search for and open **Codex 用量悬浮球** from the Windows Start menu.
+- Run `%LOCALAPPDATA%\Codex 用量悬浮球\codex-usage-ball.exe` directly.
+
+When building from the repository, run `pnpm tauri build` first and then double-click `src-tauri\target\release\codex-usage-ball.exe`. The repository does not commit `target` build artifacts, so a fresh clone must be built before this executable exists.
+
 Before running the app, make sure Codex CLI is installed and signed in. The app reads account usage through `codex app-server --listen stdio://`.
 
 ## Network Proxy

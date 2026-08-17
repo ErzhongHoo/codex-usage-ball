@@ -48,6 +48,14 @@ Codex 用量悬浮球是一个 Windows 桌面小工具，用于常驻查看 Code
 
 从 [Releases](https://github.com/ErzhongHoo/codex-usage-ball/releases) 下载最新 Windows 安装包并安装。
 
+安装完成后，可以通过以下任一方式启动：
+
+- 双击桌面的“Codex 用量悬浮球”快捷方式。
+- 在 Windows 开始菜单中搜索并打开“Codex 用量悬浮球”。
+- 直接运行 `%LOCALAPPDATA%\Codex 用量悬浮球\codex-usage-ball.exe`。
+
+如果是从仓库源码构建，先运行 `pnpm tauri build`，然后双击仓库中的 `src-tauri\target\release\codex-usage-ball.exe`。仓库不会提交 `target` 构建产物，因此刚克隆项目时需要先完成构建。
+
 运行前请确保本机已经安装并登录 Codex CLI。应用会通过 `codex app-server --listen stdio://` 读取账户用量。
 
 ## 网络代理
